@@ -12,6 +12,10 @@ Install LineageOS and other alternative Android systems from a browser. It talks
 to the phone over WebUSB, does the parts a machine should do, and tells you
 plainly which parts only you can do.
 
+**Live at [openflash.stoatworks-labs.com](https://openflash.stoatworks-labs.com).**
+Deep links work: [`?device=sunfish&os=lineageos`](https://openflash.stoatworks-labs.com/?device=sunfish&os=lineageos)
+opens straight onto the procedure for a Pixel 4a.
+
 <table>
   <tr>
     <td align="center"><img src="docs/screenshots/device-and-os.png" width="420" alt="Device detected as a Pixel 4a, with six operating systems offered and their support status"><br><sub>pick a device, pick a system</sub></td>
@@ -95,6 +99,13 @@ something you can drop on any static host. Deep links work:
 
 WebUSB needs Chrome, Edge, or another Chromium browser. Everything except the
 flashing itself works everywhere.
+
+**Stop your adb server first** — `adb kill-server`. A running adb server claims
+any Android device the moment it appears and the browser is then refused the
+same USB interface. It bites *after* the phone reboots into recovery, so the
+step that fails is not the step that caused it.
+
+Deploy: `cf-run npm run deploy` (a static-assets Worker, not a Pages project).
 
 ## Checks
 

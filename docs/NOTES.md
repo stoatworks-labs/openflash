@@ -93,13 +93,56 @@ and why `parseUnlockCommand` lives in its own module.
 only the CommonJS build, which drags a Node `url` import into the bundle, so
 `vite.config.ts` aliases the package to `dist/fastboot.mjs`.
 
+## Deployment
+
+Live at `openflash.stoatworks-labs.com` since 2026-08-25, as a **static-assets
+Worker** — `[assets] directory = "./dist"`, subdomain attached by `[[routes]]
+custom_domain`. The fleet does not use Cloudflare Pages; `pages_build_output_dir`
+fails here with "Could not detect a directory containing static files", which
+reads like a missing build step and is the wrong config key.
+
+`cf-run npm run deploy` publishes the **working tree**, not `main`. Connecting
+the repo so Cloudflare builds on push is dashboard-only — an API token cannot do
+it.
+
+The CSP in `public/_headers` has one third-party origin, `download.lineageos.org`,
+and it is load-bearing: without it the app silently loses the build manifest and
+with it every checksum it can verify. `npm run preview` does NOT apply `_headers`
+— use `npm run serve:dist`, which does.
+
+Listed on the website under Web tools → Everything else. That is
+`src/data/webtools.json` plus a `detail` entry keyed by slug in
+`src/pages/web-tools.astro`; no `projects.json` entry, deliberately, so it does
+not also appear on /software.
+
+## Only one holder may claim a USB interface
+
+Found on real hardware, 2026-08-25, on the add-ons step: "The device is already
+in used by another program" — ya-webadb's `DeviceBusyError`, from a failed
+`claimInterface`.
+
+**Two different causes, and the second is the common one.**
+
+1. *Ours.* The phone reboots between bootloader and recovery several times per
+   install, and the handle from before the reboot still holds the interface.
+   `getFastboot`/`getAdb` now drop either cached session first.
+   `android-fastboot` has no disconnect, so `FastbootSession.close()` closes the
+   underlying `USBDevice` — that is what frees the interface.
+2. *Theirs.* **A local `adb` server claims any Android device the instant it
+   appears**, and the browser is then refused. This is almost certainly what the
+   first hardware test hit. `adb kill-server` fixes it.
+
+The tell for (2) is the timing: it strikes after recovery re-enumerates, so the
+step that fails is not the step that caused it. Anything else in the fleet
+driving Android over WebUSB — `birddog-play-flasher` — has the same exposure.
+
 ## State of testing
 
 - Plan generation: all 733 devices, structurally checked.
 - SHA-256: verified against a reference implementation.
 - UI: driven end to end in a browser for `sunfish` (full plan), `lavender`
   (Xiaomi, vendor-portal unlock), `a52q` (Samsung, correctly refused).
-- **WebUSB against real hardware: never.** No phone has been connected. The
-  fastboot, ADB and sideload paths are unexercised.
-
-The obvious next step is a Pixel 4a on the end of a cable.
+- **WebUSB against real hardware: barely.** First contact was 2026-08-25 on a
+  Pixel 4a and it immediately found the interface-claim bug above. The fastboot,
+  ADB and sideload paths are still largely unexercised — nothing is yet known to
+  have been flashed end to end.
