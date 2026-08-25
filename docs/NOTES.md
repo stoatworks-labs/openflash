@@ -142,7 +142,16 @@ driving Android over WebUSB — `birddog-play-flasher` — has the same exposure
 - SHA-256: verified against a reference implementation.
 - UI: driven end to end in a browser for `sunfish` (full plan), `lavender`
   (Xiaomi, vendor-portal unlock), `a52q` (Samsung, correctly refused).
-- **WebUSB against real hardware: barely.** First contact was 2026-08-25 on a
-  Pixel 4a and it immediately found the interface-claim bug above. The fastboot,
-  ADB and sideload paths are still largely unexercised — nothing is yet known to
-  have been flashed end to end.
+- **Hardware: a complete run on a Pixel 4a, 2026-08-25.** Detection, unlock,
+  `dtbo`, recovery, format, LineageOS 23.2, MindTheGapps, first boot. Every step
+  from the page.
+
+First contact found two defects inside an hour, and both were invisible to every
+check that does not involve a phone: the interface-claim bug above, and the
+add-ons step hanging silently while recovery waited on an *Install anyway?*
+prompt that the browser cannot see. Assume the next new path has one too.
+
+**Still unexercised:** the factory-zip engine (GrapheneOS, CalyxOS) has never
+been run at all, and `sunfish` is one device on one install method out of 554.
+`fastboot_misc`, `needs_fastboot_boot`, `is_ab_rdap` and the TWRP branches have
+never executed against hardware.
