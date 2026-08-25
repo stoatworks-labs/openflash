@@ -121,8 +121,6 @@ export interface StepContext {
   progress(fraction: number | null, label?: string): void;
   fastboot(): Promise<import("./core/fastboot").FastbootSession>;
   adb(): Promise<import("./core/adb").AdbSession>;
-  /** Block until the phone presents `mode`, prompting the user if needed. */
-  awaitMode(mode: Mode, hint: string): Promise<void>;
 }
 
 export interface Step {

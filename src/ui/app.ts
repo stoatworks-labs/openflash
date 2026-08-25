@@ -780,7 +780,6 @@ async function runStep(
     },
     fastboot: getFastboot,
     adb: getAdb,
-    awaitMode: async () => {},
   };
 
   try {
