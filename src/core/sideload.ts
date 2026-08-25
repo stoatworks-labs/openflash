@@ -20,7 +20,27 @@ const FAIL = "FAILFAIL";
 export interface SideloadOptions {
   onProgress?: (fraction: number) => void;
   onLog?: (line: string) => void;
+  /**
+   * Recovery has asked for nothing for a while. Nearly always it is waiting for
+   * an answer on the handset rather than broken, so this reports how far the
+   * transfer got instead of failing — the caller decides what to say.
+   */
+  onStall?: (served: number, total: number, seconds: number) => void;
   signal?: AbortSignal;
+}
+
+/** How long recovery may say nothing before we mention it, then keep mentioning it. */
+const FIRST_STALL_MS = 20_000;
+const REPEAT_STALL_MS = 60_000;
+/** Opening the service should be immediate; if it is not, it is not on offer. */
+const OPEN_TIMEOUT_MS = 15_000;
+
+function delay(ms: number): { promise: Promise<null>; cancel: () => void } {
+  let timer: ReturnType<typeof setTimeout>;
+  const promise = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return { promise, cancel: () => clearTimeout(timer) };
 }
 
 /**
@@ -35,15 +55,27 @@ export async function sideload(
   file: File,
   options: SideloadOptions = {},
 ): Promise<void> {
-  const { onProgress, onLog, signal } = options;
+  const { onProgress, onLog, onStall, signal } = options;
   const size = file.size;
   const totalBlocks = Math.ceil(size / BLOCK_SIZE);
 
   onLog?.(`sideload: ${file.name}, ${size} bytes, ${totalBlocks} blocks of ${BLOCK_SIZE}`);
 
-  const socket = await session.adb.createSocket(
-    `sideload-host:${size}:${BLOCK_SIZE}`,
-  );
+  // A device that is not sitting in "Apply update from ADB" has no sideload
+  // service to open, and the OPEN simply never gets answered. Without this the
+  // symptom is a page that hangs with no explanation at all.
+  const opening = session.adb.createSocket(`sideload-host:${size}:${BLOCK_SIZE}`);
+  const openTimer = delay(OPEN_TIMEOUT_MS);
+  const socket = await Promise.race([opening, openTimer.promise]);
+  openTimer.cancel();
+
+  if (!socket) {
+    throw new Error(
+      "Recovery did not accept a sideload connection. Check the phone: it has to " +
+        "be showing \"Apply update from ADB\" — select Apply update, then Apply " +
+        "from ADB on the handset, then run this step again.",
+    );
+  }
 
   const reader = new BufferedReadableStream(socket.readable);
   const writer = socket.writable.getWriter();
@@ -54,7 +86,25 @@ export async function sideload(
     for (;;) {
       if (signal?.aborted) throw new Error("Cancelled.");
 
-      const request = decoder.decode(await reader.readExactly(8));
+      // Keep one read in flight across however many stall reports it takes:
+      // abandoning and re-issuing it would lose the request when it arrives.
+      const pending = Promise.resolve(reader.readExactly(8)).then((value) => ({ value }));
+      let waited = 0;
+      let next = FIRST_STALL_MS;
+      let received: { value: Uint8Array } | null = null;
+
+      while (!received) {
+        const timer = delay(next);
+        received = await Promise.race([pending, timer.promise]);
+        timer.cancel();
+        if (!received) {
+          waited += next;
+          onStall?.(highWater, totalBlocks, Math.round(waited / 1000));
+          next = REPEAT_STALL_MS;
+        }
+      }
+
+      const request = decoder.decode(received.value);
 
       if (request === DONE) {
         onProgress?.(1);

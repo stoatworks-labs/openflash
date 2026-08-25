@@ -634,6 +634,8 @@ export function buildRecoveryPlan(
       await sideload(adb, file, {
         onProgress: (f) => ctx.progress(f, "sideload"),
         onLog: (l) => ctx.log(l),
+        onStall: (served, total, seconds) =>
+          ctx.log(stallNote(served, total, seconds, "rom"), "warn"),
       });
       ctx.progress(null);
       ctx.log("ROM installed", "ok");
@@ -652,16 +654,25 @@ export function buildRecoveryPlan(
         ),
         ...(device.is_ab_device
           ? [
-              note(
-                "On A/B devices the recovery usually offers to reboot back into " +
-                  "recovery after the ROM install specifically so add-ons can be " +
-                  "applied. Say yes to that.",
+              text(
+                "After the ROM install, recovery offers to reboot back into recovery " +
+                  "specifically so add-ons can be applied. If you said yes to that, it " +
+                  "is already where it needs to be.",
               ),
             ]
           : []),
-        note(
-          'Add-ons are not signed with the OS project\'s key, so recovery will say ' +
-            '"Signature verification failed". Answering Yes is expected here.',
+        text(
+          "On the phone, select Apply update, then Apply from ADB — again. Recovery " +
+            "leaves sideload mode after every package, so it has to be put back into " +
+            "it for each one.",
+        ),
+        warn(
+          "Recovery will refuse this package's signature, and that is expected: " +
+            "add-ons are not signed with the OS project's key. Its log says " +
+            '"failed to verify whole-file signature" and it puts an "Install anyway?" ' +
+            "prompt on the phone's own screen. Answer Yes on the handset. This page " +
+            "cannot see that prompt or press it, and the transfer stands still until " +
+            "you do — so if it looks stuck here, look at the phone.",
         ),
         note(
           "This step follows a reboot back into recovery, which is where a local adb " +
@@ -683,8 +694,11 @@ export function buildRecoveryPlan(
         await sideload(adb, file, {
           onProgress: (f) => ctx.progress(f, "addon"),
           onLog: (l) => ctx.log(l),
+          onStall: (served, total, seconds) =>
+            ctx.log(stallNote(served, total, seconds, "addon"), "warn"),
         });
         ctx.progress(null);
+        ctx.log("add-on installed", "ok");
       },
     });
   }
@@ -729,6 +743,44 @@ export function buildRecoveryPlan(
     artifacts: options.artifacts,
     phases,
   };
+}
+
+/**
+ * What to say when recovery stops asking for blocks.
+ *
+ * It is very rarely broken. Recovery reads the whole package to verify it
+ * before installing, so the transfer finishing is followed by a silence while
+ * it checks the signature — and for anything not signed with the OS project's
+ * own key, that silence ends in a prompt on the handset that only a thumb can
+ * answer. The browser cannot see that prompt, so the least it can do is say
+ * where to look.
+ */
+function stallNote(
+  served: number,
+  total: number,
+  seconds: number,
+  kind: "rom" | "addon",
+): string {
+  const done = served >= total;
+  const where = done
+    ? `the whole package is across (${total} of ${total} blocks)`
+    : `recovery stopped asking for data at ${served} of ${total} blocks`;
+
+  if (kind === "addon") {
+    return (
+      `${where}, and it has said nothing for ${seconds}s. Look at the phone. ` +
+      `Add-ons are not signed with the OS project's key, so recovery will have ` +
+      `refused the signature — "failed to verify whole-file signature" in its log ` +
+      `— and is waiting on an "Install anyway?" prompt. Answer Yes on the handset ` +
+      `and this carries on by itself.`
+    );
+  }
+
+  return (
+    `${where}, and it has said nothing for ${seconds}s. Look at the phone: ` +
+    `recovery is either verifying the package, which takes a while on a build ` +
+    `this size, or waiting for you to answer something on its own screen.`
+  );
 }
 
 /** The wiki has four different ways of getting from fastboot into recovery. */
