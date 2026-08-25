@@ -1,0 +1,10 @@
+{
+  "id": "divestos",
+  "name": "DivestOS",
+  "href": "https://divestos.org",
+  "blurb": "A hardened LineageOS fork that kept older devices patched long after upstream dropped them. The project ended in 2025; builds remain downloadable but are no longer updated.",
+  "engine": "recovery-sideload",
+  "devices": "*",
+  "downloads": "https://divestos.org/pages/devices",
+  "note": "DivestOS stopped shipping updates in 2025. Installing it means running an OS that will receive no further security patches — for most people that is a worse position than the stock ROM they are replacing."
+}

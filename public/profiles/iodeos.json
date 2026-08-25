@@ -1,0 +1,10 @@
+{
+  "id": "iodeos",
+  "name": "iodéOS",
+  "href": "https://iode.tech",
+  "blurb": "A LineageOS derivative from a French company, with an ad and tracker blocker built into the OS rather than bolted on.",
+  "engine": "recovery-sideload",
+  "devices": "*",
+  "downloads": "https://gitlab.com/iode/iodeos/-/wikis/devices/{codename}",
+  "note": "iodéOS publishes per-device pages rather than a machine-readable list. Check yours before starting."
+}
