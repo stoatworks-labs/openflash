@@ -13,7 +13,9 @@
     "check": "npm run typecheck && npm run check:sha256 && npm run check:unlock && npm run check:plans",
     "check:sha256": "node --experimental-strip-types --import ./scripts/ts-resolve.mjs scripts/check-sha256.mjs",
     "check:unlock": "node --experimental-strip-types --import ./scripts/ts-resolve.mjs scripts/check-unlock.mjs",
-    "check:plans": "node --experimental-strip-types --import ./scripts/ts-resolve.mjs scripts/check-plans.mjs"
+    "check:plans": "node --experimental-strip-types --import ./scripts/ts-resolve.mjs scripts/check-plans.mjs",
+    "deploy": "npm run build && npx wrangler deploy",
+    "serve:dist": "python3 scripts/serve-dist.py --dir dist --port 5184"
   },
   "dependencies": {
     "@yume-chan/adb": "^2.6.3",
@@ -26,6 +28,7 @@
     "@types/w3c-web-usb": "^1.0.14",
     "js-yaml": "^5.4.0",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "wrangler": "^4.125.0"
   }
 }

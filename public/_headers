@@ -1,0 +1,29 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://download.lineageos.org; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+
+# `connect-src` carries exactly one third-party origin: download.lineageos.org,
+# whose v2 API is the only build manifest in this space a browser is allowed to
+# read. Remove it and the app silently stops knowing which build is current and
+# stops being able to verify a checksum — so it is load-bearing, not incidental.
+#
+# The ROM mirrors are deliberately absent. They send no CORS headers, so the page
+# could not fetch from them even if the CSP allowed it; the files are supplied by
+# the user and hashed in the page instead.
+#
+# `frame-ancestors 'none'` matters more here than on the other tools: a page that
+# can flash a phone should never be embeddable by anything.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The device database is generated from the LineageOS wiki and changes when
+# upstream does. It is not content-hashed, so it must revalidate rather than sit
+# in a cache for a year telling somebody their phone is unsupported.
+/data/devices.json
+  Cache-Control: no-cache
+
+/profiles/*
+  Cache-Control: no-cache

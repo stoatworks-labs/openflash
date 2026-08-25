@@ -1,0 +1,32 @@
+# Cloudflare deployment for openflash.
+#
+# A static-assets-only Worker: no server code, matching the rest of the fleet.
+# The fleet does NOT use Cloudflare Pages — `pages_build_output_dir` here would
+# fail with "Could not detect a directory containing static files", which reads
+# like a missing build step but is actually the wrong config key.
+#
+# Cloudflare builds this one (plain Vite, and it is the real tool), so `dist/`
+# stays out of git. Set in the Cloudflare project:
+#
+#   build command   npm ci && npm run build
+#   deploy command  npx wrangler deploy
+#
+# `public/_headers` is copied into dist/ by Vite and carries the CSP. The assets
+# runtime honours it; `npm run preview` does NOT — use `npm run serve:dist` to
+# check the CSP for real, because this app's CSP has a third-party origin in it
+# and a mistake there breaks device detection rather than the page.
+#
+# WebUSB is not governed by CSP, so nothing here affects talking to the phone.
+# It does require a secure context, which https:// on the custom domain provides.
+#
+# `name` must match the Cloudflare project.
+
+name = "openflash"
+compatibility_date = "2026-07-30"
+
+[assets]
+directory = "./dist"
+
+[[routes]]
+pattern = "openflash.stoatworks-labs.com"
+custom_domain = true
