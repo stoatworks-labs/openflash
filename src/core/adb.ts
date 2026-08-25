@@ -8,6 +8,7 @@
 import { Adb, AdbDaemonTransport } from "@yume-chan/adb";
 import AdbWebCredentialStore from "@yume-chan/adb-credential-web";
 import { AdbDaemonWebUsbDeviceManager } from "@yume-chan/adb-daemon-webusb";
+import { DEVICE_BUSY_ADVICE, isDeviceBusy, releaseAllDevices } from "./usb";
 
 export interface AdbProps {
   device: string | null;
@@ -49,7 +50,22 @@ export class AdbSession {
     const device = known.length === 1 ? known[0]! : await manager.requestDevice();
     if (!device) throw new Error("No device was selected.");
 
-    const connection = await device.connect();
+    let connection;
+    try {
+      connection = await device.connect();
+    } catch (err) {
+      if (!isDeviceBusy(err)) throw err;
+      // Nearly always a handle of our own that outlived the phone's last
+      // reboot. Drop everything this origin holds and try once more before
+      // blaming anybody else.
+      await releaseAllDevices();
+      try {
+        connection = await device.connect();
+      } catch (retryErr) {
+        if (isDeviceBusy(retryErr)) throw new Error(DEVICE_BUSY_ADVICE);
+        throw retryErr;
+      }
+    }
     const transport = await AdbDaemonTransport.authenticate({
       serial: device.serial,
       connection,

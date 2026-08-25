@@ -617,6 +617,12 @@ export function buildRecoveryPlan(
           '"adb: failed to read command: Success". That is the known cosmetic ending, ' +
           "not a failure.",
       ),
+      note(
+        'If this fails with "the device is already in used by another program", a ' +
+          "local adb server has claimed the phone. Run `adb kill-server` and try " +
+          "again — recovery re-enumerates as a new USB device, which is exactly the " +
+          "moment a running adb server grabs it.",
+      ),
     ],
     commands: ["adb -d sideload /path/to/rom.zip"],
     needs: ["rom"],
@@ -656,6 +662,11 @@ export function buildRecoveryPlan(
         note(
           'Add-ons are not signed with the OS project\'s key, so recovery will say ' +
             '"Signature verification failed". Answering Yes is expected here.',
+        ),
+        note(
+          "This step follows a reboot back into recovery, which is where a local adb " +
+            "server is most likely to have taken the device. If it reports that " +
+            "something else is using it, run `adb kill-server` and run this step again.",
         ),
       ],
       commands: ["adb -d sideload /path/to/addon.zip"],

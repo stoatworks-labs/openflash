@@ -2,6 +2,7 @@
 // library directly.
 
 import { FastbootDevice, FastbootError, UsbError } from "android-fastboot";
+import { DEVICE_BUSY_ADVICE, isDeviceBusy } from "./usb";
 
 export interface FastbootVars {
   product: string | null;
@@ -107,6 +108,25 @@ export class FastbootSession {
   async waitForDisconnect(): Promise<void> {
     await this.dev.waitForDisconnect();
   }
+
+  /**
+   * Release the USB interface.
+   *
+   * android-fastboot has no disconnect of its own, so this closes the
+   * underlying USBDevice — which is what frees the interface for ADB to claim
+   * once the phone reboots into recovery. Without it the next transport fails
+   * with "already in used by another program", pointing at a culprit that is
+   * really this page.
+   */
+  async close(): Promise<void> {
+    const device = this.dev.device;
+    if (!device?.opened) return;
+    try {
+      await device.close();
+    } catch {
+      // The phone rebooting out from under us is the normal way this ends.
+    }
+  }
 }
 
 /** Turn a library error into something worth showing a person. */
@@ -114,6 +134,7 @@ export function describeFastbootError(err: unknown): string {
   if (err instanceof FastbootError) {
     return `bootloader refused the command: ${err.message}`;
   }
+  if (isDeviceBusy(err)) return DEVICE_BUSY_ADVICE;
   if (err instanceof UsbError) {
     return `USB problem: ${err.message}. Try a different cable or a USB 2.0 port — ` +
       `bootloader-mode USB is notoriously fussy, especially through hubs and USB-C docks.`;

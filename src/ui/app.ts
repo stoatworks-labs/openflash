@@ -151,6 +151,14 @@ function support(): HTMLElement {
     return el("div", { class: "banner good" },
       el("h3", {}, "WebUSB available"),
       el("p", {}, "This browser can talk to the phone directly, so the flashing steps run from here."),
+      el("p", { class: "small" },
+        "If you have Android platform-tools installed, stop its adb server first — ",
+        el("code", {}, "adb kill-server"),
+        ". A running adb server claims any Android device the instant it appears, " +
+        "and the browser is then refused the same interface. It typically bites " +
+        "after the phone reboots into recovery rather than at the start, so the " +
+        "step that fails is not the one that caused it.",
+      ),
     );
   }
   return el("div", { class: "banner bad" },
@@ -804,6 +812,12 @@ async function runStep(
  */
 async function getFastboot(): Promise<FastbootSession> {
   if (state.fastbootSession?.connected) return state.fastbootSession;
+
+  // Only one holder per USB interface, so whatever we were using last has to
+  // let go first. This is the step that used to be missing.
+  await dropSession("adb");
+  await dropSession("fastboot");
+
   log("connecting to fastboot");
   state.fastbootSession = await FastbootSession.open();
   return state.fastbootSession;
@@ -811,10 +825,36 @@ async function getFastboot(): Promise<FastbootSession> {
 
 async function getAdb(): Promise<AdbSession> {
   if (state.adbSession?.alive) return state.adbSession;
+
   if (state.adbSession) log("the previous ADB connection is gone; reconnecting");
+  await dropSession("adb");
+  await dropSession("fastboot");
+
   log("connecting over ADB");
   state.adbSession = await AdbSession.open();
   return state.adbSession;
+}
+
+/**
+ * Close a cached session and forget it.
+ *
+ * Called before opening either transport, because the phone reboots between
+ * bootloader and recovery several times during an install and the handle from
+ * before the reboot still holds the interface. Leaving it claimed is what
+ * produced "The device is already in used by another program" on the step
+ * after a reboot — most visibly add-ons, which on an A/B device comes straight
+ * after recovery restarts itself.
+ */
+async function dropSession(which: "adb" | "fastboot"): Promise<void> {
+  if (which === "adb") {
+    const session = state.adbSession;
+    state.adbSession = null;
+    if (session) await session.close();
+    return;
+  }
+  const session = state.fastbootSession;
+  state.fastbootSession = null;
+  if (session) await session.close();
 }
 
 /** Clear everything downstream of whatever the user just changed. */
