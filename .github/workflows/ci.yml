@@ -22,8 +22,13 @@ jobs:
     # The device database is generated from the LineageOS wiki and committed.
     # This says whether upstream has moved -- it does not fail the build, because
     # upstream moving is normal and is not a defect in this repo.
+    #
+    # It reports through the step summary and a notice annotation rather than an
+    # exit code. `continue-on-error: true` kept the *workflow* green but the job
+    # still reported a `failure` conclusion, and statusCheckRollup reads that --
+    # so the repo showed permanently red in a fleet sweep and would have hidden a
+    # real failure behind a condition that is working as intended.
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,4 +37,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run devices
-      - run: git diff --stat --exit-code public/data/devices.json
+      - name: Report whether the device database has drifted
+        run: |
+          if git diff --quiet public/data/devices.json; then
+            echo "Device database is current with the LineageOS wiki." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Device database has drifted"
+              echo
+              echo "Upstream has moved. Normal, and not a defect here — regenerate with \`npm run devices\` when convenient."
+              echo
+              echo '```'
+              git diff --stat public/data/devices.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Device database has drifted from the LineageOS wiki; run npm run devices to refresh."
+          fi
