@@ -12,3 +12,7 @@ node_modules
 # make the image depend on whatever was last built on someone's laptop.
 /dist
 /out
+
+# The desktop tray app (gen-launcher.mjs). Its Rust target dir alone would
+# be gigabytes, and none of it is served.
+/launcher
