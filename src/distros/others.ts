@@ -11,7 +11,7 @@
 // actually goes wrong.
 
 import type { BuildInfo, DeviceRecord, Distro, Plan, Support } from "../types";
-import { buildFactoryPlan, buildRecoveryPlan } from "../core/plan";
+import { buildFactoryPlan, buildRecoveryPlan, deviceArtifacts } from "../core/plan";
 
 /**
  * /e/OS — Murena's de-Googled LineageOS derivative, installed the same way
@@ -57,15 +57,10 @@ export const eos: Distro = {
           url: `https://doc.e.foundation/devices/${device.codename}/install`,
           note: "/e/OS ships its own recovery; do not substitute the LineageOS one.",
         },
-        ...(device.before_recovery_install?.partitions ?? []).map((p) => ({
-          key: `img:${p}`,
-          label: `${p}.img`,
-          filename: `${p}.img`,
-          note: "From the same build as the ROM.",
-        })),
+        ...deviceArtifacts(device, `https://doc.e.foundation/devices/${device.codename}/install`),
         {
           key: "addon",
-          label: "Add-on package (optional)",
+          label: "Add-on package",
           optional: true,
           note: "/e/OS includes microG already; most people need nothing here.",
         },

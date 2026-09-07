@@ -7,7 +7,7 @@
 
 import type {
   Artifact, BuildInfo, DeviceDatabase, DeviceRecord, Distro, Plan, ResolvedArtifact,
-  Step, StepContext,
+  Setting, Step, StepContext,
 } from "../types";
 import { allDistros } from "../distros";
 import { AdbSession } from "../core/adb";
@@ -415,6 +415,61 @@ function renderOs(): void {
       );
     });
   }
+
+  if (state.distro?.settings) view.os.append(settingsForm(state.distro.settings));
+}
+
+/**
+ * The questions a system has to ask before it can plan — today only the
+ * catch-all "another ROM" entry has any. Edits go straight into the setting
+ * and rebuild the plan, without re-rendering this card: re-rendering would
+ * take the focus out of the field on every keystroke.
+ */
+function settingsForm(settings: Setting[]): HTMLElement {
+  const form = el("div", { class: "banner settings" },
+    el("h3", {}, "About this system"),
+  );
+
+  for (const setting of settings) {
+    const field = el("div", { class: "field" }, el("label", {}, setting.label));
+
+    if (setting.choices) {
+      for (const choice of setting.choices) {
+        const input = el("input", {
+          type: "radio", name: `setting-${setting.key}`, value: choice.value,
+          checked: setting.value === choice.value,
+          onchange: () => void applySetting(setting, choice.value, true),
+        });
+        field.append(
+          el("label", { class: "choice" },
+            input,
+            el("span", {}, el("strong", {}, choice.label), choice.hint ? el("span", { class: "small dim" }, ` — ${choice.hint}`) : null),
+          ),
+        );
+      }
+    } else {
+      const input = el("input", {
+        type: "text", value: setting.value, placeholder: setting.hint,
+        oninput: () => void applySetting(setting, input.value, false),
+      });
+      field.append(input);
+    }
+    form.append(field);
+  }
+  return form;
+}
+
+/** A changed answer means a changed plan. A change of engine also means a
+ *  different set of files, so anything already supplied is dropped. */
+async function applySetting(setting: Setting, value: string, structural: boolean): Promise<void> {
+  setting.value = value;
+  if (structural) {
+    state.files.clear();
+    state.done.clear();
+  }
+  await rebuildPlan();
+  renderFiles();
+  renderProcedure();
 }
 
 async function selectDistro(distro: Distro): Promise<void> {

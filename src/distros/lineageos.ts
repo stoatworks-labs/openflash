@@ -7,7 +7,7 @@
 // headers, which is why we link to the files rather than fetching them.
 
 import type { Artifact, BuildInfo, DeviceRecord, Distro, Plan, Support } from "../types";
-import { buildRecoveryPlan } from "../core/plan";
+import { COPY_PARTITIONS_URL, buildRecoveryPlan, deviceArtifacts } from "../core/plan";
 
 const API = "https://download.lineageos.org/api/v2";
 
@@ -25,9 +25,6 @@ interface ApiBuild {
   version: string;
   files: ApiFile[];
 }
-
-const COPY_PARTITIONS_URL =
-  "https://mirrorbits.lineageos.org/tools/copy-partitions-20220613-signed.zip";
 
 export const lineageos: Distro = {
   id: "lineageos",
@@ -174,19 +171,10 @@ function mapFiles(device: DeviceRecord, build: ApiBuild): Artifact[] {
 function fallbackArtifacts(device: DeviceRecord): Artifact[] {
   const partition = device.recovery_partition_name ?? "recovery";
   const downloads = `https://download.lineageos.org/devices/${device.codename}`;
-  const artifacts: Artifact[] = [
+  return [
     { key: "rom", label: "LineageOS zip", url: downloads },
     { key: "recovery", label: `Lineage Recovery (${partition}.img)`, filename: `${partition}.img`, url: downloads },
+    ...deviceArtifacts(device, downloads),
+    { key: "addon", label: "Add-on package (optional)", optional: true, url: "https://wiki.lineageos.org/gapps" },
   ];
-  for (const p of device.before_recovery_install?.partitions ?? []) {
-    artifacts.push({ key: `img:${p}`, label: `${p}.img`, filename: `${p}.img`, url: downloads });
-  }
-  if (device.is_ab_rdap) {
-    artifacts.push({ key: "super_empty", label: "super_empty.img", filename: "super_empty.img", url: downloads });
-  }
-  if (device.before_lineage_install === "ab_copy_partitions") {
-    artifacts.push({ key: "copy-partitions", label: "copy-partitions-20220613-signed.zip", url: COPY_PARTITIONS_URL });
-  }
-  artifacts.push({ key: "addon", label: "Add-on package (optional)", optional: true, url: "https://wiki.lineageos.org/gapps" });
-  return artifacts;
 }

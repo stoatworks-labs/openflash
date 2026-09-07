@@ -48,6 +48,10 @@ header.top p { margin: 0; color: var(--dim); max-width: 62ch; }
 .banner h3 { margin: 0 0 6px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
 .banner p { margin: 0 0 6px; }
 .banner p:last-child { margin-bottom: 0; }
+.settings .field { margin: 10px 0 0; }
+.settings .field > label { display: block; font-size: 13px; color: var(--dim); margin-bottom: 4px; }
+.settings .choice { display: flex; gap: 8px; align-items: baseline; margin: 6px 0; cursor: pointer; }
+.settings .choice input { margin: 0; flex: none; }
 
 section.card {
   background: var(--panel);

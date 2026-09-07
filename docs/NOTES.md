@@ -41,6 +41,23 @@ The other 179 (Odin/`samloader_rs`, `dd`, `apx`, `edl_custom`, `nintendo`,
 `amlogic_update`, `oor`) are explicitly refused in `src/core/methods.ts` with a
 reason, rather than half-supported.
 
+## The catch-all entry, and the artefact list every adapter owes
+
+Added 2026-09-07. `src/distros/other.ts` is the "Another ROM" entry: a name
+and an engine choice (`Distro.settings`, rendered by `settingsForm` in the UI)
+and nothing else. It exists because the only thing the page ever needed from
+an OS project was files the user could bring themselves; every named system
+except LineageOS is already that.
+
+Writing its check found a real gap. `buildRecoveryPlan` emits steps that need
+`super_empty`, `copy-partitions` and `misc` for particular devices, and the
+profile adapter, /e/OS and LineageOS's offline fallback all listed only the
+`before_recovery_install` images — so on 37 devices the plan would demand a
+file with no drop target for it. `deviceArtifacts(device)` in `plan.ts` is
+now the one place that list lives, and `check:plans` builds the catch-all on
+both engines for every device so the gap cannot reopen. If a new artefact key
+is ever added to a plan step, add it there.
+
 ## The bug worth remembering
 
 Free-form fastboot commands go on the wire **space-separated**, not
@@ -151,7 +168,7 @@ check that does not involve a phone: the interface-claim bug above, and the
 add-ons step hanging silently while recovery waited on an *Install anyway?*
 prompt that the browser cannot see. Assume the next new path has one too.
 
-**Still unexercised:** the factory-zip engine (GrapheneOS, CalyxOS) has never
+**Still unexercised:** the catch-all entry on hardware with a non-LineageOS ROM (its recovery-sideload path is the tested code, but another project's recovery may prompt differently); the factory-zip engine (GrapheneOS, CalyxOS) has never
 been run at all, and `sunfish` is one device on one install method out of 554.
 `fastboot_misc`, `needs_fastboot_boot`, `is_ab_rdap` and the TWRP branches have
 never executed against hardware.

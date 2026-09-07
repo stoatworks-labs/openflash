@@ -11,7 +11,7 @@
 // without waiting for anybody.
 
 import type { Artifact, BuildInfo, DeviceRecord, Distro, Plan, Support } from "../types";
-import { buildFactoryPlan, buildRecoveryPlan } from "../core/plan";
+import { buildFactoryPlan, buildRecoveryPlan, deviceArtifacts } from "../core/plan";
 
 export interface Profile {
   id: string;
@@ -79,12 +79,8 @@ export function profileToDistro(profile: Profile): Distro {
         artifacts: profile.artifacts ?? [
           { key: "rom", label: `${profile.name} zip`, url: link(device) },
           { key: "recovery", label: `Recovery image (${partition}.img)`, filename: `${partition}.img`, url: link(device) },
-          ...(device.before_recovery_install?.partitions ?? []).map((p) => ({
-            key: `img:${p}`,
-            label: `${p}.img`,
-            filename: `${p}.img`,
-          })),
-          { key: "addon", label: "Add-on package (optional)", optional: true },
+          ...deviceArtifacts(device, link(device)),
+          { key: "addon", label: "Add-on package", optional: true },
         ],
       });
     },

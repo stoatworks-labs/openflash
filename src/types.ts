@@ -163,6 +163,20 @@ export interface Plan {
   phases: Phase[];
 }
 
+/**
+ * A choice the user has to make about a system before its plan can be built.
+ * Only the catch-all "another ROM" entry has any; the named systems know
+ * their own answers. The UI writes `value` in place and rebuilds the plan.
+ */
+export interface Setting {
+  key: string;
+  label: string;
+  hint?: string;
+  value: string;
+  /** Free text when absent; one of these when present. */
+  choices?: { value: string; label: string; hint?: string }[];
+}
+
 /** An installable OS. Each one knows how to turn a device into a plan. */
 export interface Distro {
   id: string;
@@ -172,6 +186,8 @@ export interface Distro {
   /** Codenames this OS builds for, or null if it can't be enumerated. */
   supports(device: DeviceRecord): Promise<Support>;
   plan(device: DeviceRecord, build: BuildInfo | null): Promise<Plan>;
+  /** Questions to put to the user before `plan` is meaningful. */
+  settings?: Setting[];
   /** Fetch the newest build's manifest, if the project publishes one that is
    *  reachable from a browser (i.e. CORS-enabled). */
   builds?(device: DeviceRecord): Promise<BuildInfo[]>;

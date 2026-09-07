@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const { buildRecoveryPlan } = await import(join(ROOT, "src/core/plan.ts"));
 const { methodInfo } = await import(join(ROOT, "src/core/methods.ts"));
+const { other } = await import(join(ROOT, "src/distros/other.ts"));
 
 const db = JSON.parse(readFileSync(join(ROOT, "public/data/devices.json"), "utf8"));
 
@@ -52,22 +53,7 @@ for (const device of db.devices) {
   if (plan.unsupported) { unsupported++; continue; }
   planned++;
 
-  const steps = plan.phases.flatMap((phase) => phase.steps);
-  const ids = new Set();
-  const keys = new Set(plan.artifacts.map((a) => a.key));
-
-  for (const step of steps) {
-    if (ids.has(step.id)) problems.push(`${device.id}: duplicate step id "${step.id}"`);
-    ids.add(step.id);
-    if (!step.run && !step.confirm) {
-      problems.push(`${device.id}: step "${step.id}" is neither runnable nor confirmable`);
-    }
-    for (const need of step.needs ?? []) {
-      if (!keys.has(need)) {
-        problems.push(`${device.id}: step "${step.id}" needs "${need}", which no artefact provides`);
-      }
-    }
-  }
+  const ids = structural(device.id, plan);
 
   // Every plan must reach a sideload of the ROM and must wipe before it.
   if (!ids.has("sideload-rom")) problems.push(`${device.id}: never installs the ROM`);
@@ -75,6 +61,44 @@ for (const device of db.devices) {
   if (!ids.has("to-recovery") && !ids.has("boot-recovery")) {
     problems.push(`${device.id}: never gets into recovery`);
   }
+
+  // The catch-all "another ROM" entry builds its own artefact list from the
+  // device record, on either engine. It must be as well-formed as the rest.
+  for (const engine of ["recovery-sideload", "factory-zip"]) {
+    other.settings.find((s) => s.key === "engine").value = engine;
+    let generic;
+    try {
+      generic = await other.plan(device, null);
+    } catch (err) {
+      problems.push(`${device.id} [other/${engine}]: threw ${err.message}`);
+      continue;
+    }
+    const got = structural(`${device.id} [other/${engine}]`, generic);
+    const install = engine === "factory-zip" ? "flash-factory" : "sideload-rom";
+    if (!got.has(install)) problems.push(`${device.id} [other/${engine}]: never installs the ROM`);
+  }
+}
+
+/** Step ids are unique, every step is runnable or confirmable, and every
+ *  file a step needs is one the plan asks the user for. Returns the ids. */
+function structural(label, plan) {
+  const steps = plan.phases.flatMap((phase) => phase.steps);
+  const ids = new Set();
+  const keys = new Set(plan.artifacts.map((a) => a.key));
+
+  for (const step of steps) {
+    if (ids.has(step.id)) problems.push(`${label}: duplicate step id "${step.id}"`);
+    ids.add(step.id);
+    if (!step.run && !step.confirm) {
+      problems.push(`${label}: step "${step.id}" is neither runnable nor confirmable`);
+    }
+    for (const need of step.needs ?? []) {
+      if (!keys.has(need)) {
+        problems.push(`${label}: step "${step.id}" needs "${need}", which no artefact provides`);
+      }
+    }
+  }
+  return ids;
 }
 
 console.log(`devices:      ${db.devices.length}`);

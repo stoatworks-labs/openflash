@@ -83,6 +83,7 @@ npm run devices
 | **CalyxOS** | factory image zip | Procedure only, and their device list moves; check it first |
 | **GrapheneOS** | factory image zip | Procedure only — and they have their own official web installer, which you should use instead |
 | **iodéOS**, **DivestOS** | recovery + sideload | Via JSON profiles in `public/profiles/` |
+| **Another ROM** | either, your choice | Nothing — you bring the files and the project's own guide; the page drives the flash for your exact device |
 
 Any other ROM can be added as a profile — a dozen lines of JSON naming the
 project, its download page and which of the two engines it uses. No code.

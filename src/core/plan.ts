@@ -25,6 +25,8 @@ export interface RecoveryPlanOptions {
   artifacts: Artifact[];
   /** Whether the OS publishes optional add-on packages (GApps and friends). */
   addons?: boolean;
+  /** Extra prose for the read-first step, after the backup warning. */
+  notes?: Body[];
 }
 
 const text = (s: string): Body => ({ text: s });
@@ -33,6 +35,42 @@ const note = (s: string): Body => ({ note: s });
 
 /** The partition the recovery image goes on; `boot` on modern A/B devices. */
 const recoveryPartition = (d: DeviceRecord) => d.recovery_partition_name ?? "recovery";
+
+export const COPY_PARTITIONS_URL = "https://mirrorbits.lineageos.org/tools/copy-partitions-20220613-signed.zip";
+const MISC_URL = "https://blob.lineageos.org/downloads/boot-recovery-misc.img";
+
+/**
+ * The files the *device* demands of any recovery-sideload plan, over and above
+ * the ROM and the recovery: images that must go on before the recovery will
+ * boot, the empty super for retrofit-dynamic-partition devices, the
+ * copy-partitions package for A/B devices whose second slot may be empty, the
+ * misc marker for devices that reach recovery that way. Every adapter on this
+ * engine must list these, or the plan ends up needing a file it never asked
+ * for — `check:plans` catches that. The copy-partitions and misc files are
+ * hosted by LineageOS but are not LineageOS-specific.
+ */
+export function deviceArtifacts(device: DeviceRecord, url?: string): Artifact[] {
+  const artifacts: Artifact[] = [];
+  for (const p of device.before_recovery_install?.partitions ?? []) {
+    artifacts.push({ key: `img:${p}`, label: `${p}.img`, filename: `${p}.img`, url, note: "From the same build as the ROM." });
+  }
+  if (device.is_ab_rdap) {
+    artifacts.push({ key: "super_empty", label: "super_empty.img", filename: "super_empty.img", url, note: "From the same build as the ROM." });
+  }
+  if (device.before_lineage_install === "ab_copy_partitions") {
+    artifacts.push({
+      key: "copy-partitions",
+      label: "copy-partitions-20220613-signed.zip",
+      filename: "copy-partitions-20220613-signed.zip",
+      url: COPY_PARTITIONS_URL,
+      note: "Copies firmware to the inactive slot. Not part of the per-build downloads.",
+    });
+  }
+  if (device.recovery_reboot === "fastboot_misc") {
+    artifacts.push({ key: "misc", label: "boot-recovery-misc.img", filename: "boot-recovery-misc.img", url: MISC_URL });
+  }
+  return artifacts;
+}
 
 /**
  * Build the recovery-and-sideload procedure: unlock the bootloader, put a
@@ -74,6 +112,7 @@ export function buildRecoveryPlan(
           "Back up anything you want to keep to a computer now. Cloud backups of a " +
             "stock ROM often will not restore onto a custom one.",
         ),
+        ...(options.notes ?? []),
         warn(
           "If any step fails, stop. Do not carry on to the next one. A half-flashed " +
             "phone is usually recoverable; a phone that has had three more steps run " +
