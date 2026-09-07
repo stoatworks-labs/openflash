@@ -141,6 +141,10 @@ jobs:
           path: out/*
           if-no-files-found: error
 
+      # A dispatch naming a tag that has not been pushed is a dry run: every
+      # platform builds and the installers are kept as workflow artifacts, and
+      # nothing is published. That is how a launcher is proven on all four
+      # runners before the first real release is cut.
       - name: Attach installers to the release
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.tag != ''
         shell: bash
@@ -148,6 +152,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          if ! git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "tag $TAG is not pushed — dry run, installers are in the workflow artifacts"
+            exit 0
+          fi
           extra=""
           case "$TAG" in *-*) extra="--prerelease" ;; esac
           gh release view "$TAG" >/dev/null 2>&1 || \
