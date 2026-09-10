@@ -28,6 +28,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 /// One rule from a `_headers` file: a path pattern and the headers it sets
 /// (or, with a leading `!`, removes).
@@ -165,10 +166,12 @@ pub struct Site {
 ///
 /// [`stop`]: StaticServer::stop
 pub struct StaticServer {
-    /// The port actually bound — the one asked for, unless that was 0. Read
-    /// by the tests; the panel takes the port from its own settings.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub port: u16,
+    /// The address actually bound — the port is the one asked for, unless that
+    /// was 0. Kept whole rather than as a bare port because [`stop`] has to
+    /// bind it again to know the listener has gone.
+    ///
+    /// [`stop`]: StaticServer::stop
+    addr: SocketAddr,
     server: Arc<tiny_http::Server>,
     alive: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
@@ -188,7 +191,7 @@ impl StaticServer {
             .map_err(|e| format!("bad bind address {bind_host}:{port}: {e}"))?;
         let listener =
             TcpListener::bind(addr).map_err(|e| format!("could not bind {addr}: {e}"))?;
-        let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+        let addr = listener.local_addr().map_err(|e| e.to_string())?;
         let server = Arc::new(
             tiny_http::Server::from_listener(listener, None)
                 .map_err(|e| format!("could not start the server: {e}"))?,
@@ -211,11 +214,18 @@ impl StaticServer {
         let _ = ready_rx.recv();
 
         Ok(StaticServer {
-            port,
+            addr,
             server,
             alive,
             thread: Some(thread),
         })
+    }
+
+    /// The port actually bound. Read by the tests; the panel takes the port
+    /// from its own settings.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn port(&self) -> u16 {
+        self.addr.port()
     }
 
     /// Whether the serving thread is still accepting. False once it has
@@ -225,12 +235,50 @@ impl StaticServer {
         self.alive.load(Ordering::SeqCst)
     }
 
-    /// Stop accepting and wait for the thread to finish.
+    /// Stop accepting, wait for the serving thread, and wait for the listening
+    /// socket to actually close.
+    ///
+    /// That last part is not ceremony. `tiny_http` moves the `TcpListener`
+    /// into a detached accept thread of its own and never joins it; its `Drop`
+    /// sets a flag and makes a throwaway connection to wake that thread up.
+    /// So releasing the last `Arc<Server>` *starts* the teardown and returns —
+    /// the port stays bound until the accept thread is next scheduled, which
+    /// on a loaded machine has been measured at tens of milliseconds. Stopping
+    /// and starting again on the same fixed port, which is exactly what the
+    /// panel's Stop then Start does, would otherwise fail to bind for reasons
+    /// that look like nothing the user did.
     pub fn stop(mut self) {
+        let addr = self.addr;
         self.server.unblock();
         self.alive.store(false, Ordering::SeqCst);
         if let Some(t) = self.thread.take() {
             let _ = t.join();
+        }
+        drop(self); // the last Arc — this is what begins tiny_http's teardown
+        wait_until_bindable(addr);
+    }
+}
+
+/// Block until `addr` can be bound again, or until the wait has gone on long
+/// enough to be someone else's problem.
+///
+/// Binding is the question worth asking: it is precisely what the next
+/// `start` will do, and it answers itself, because a `bind` refused with
+/// `EADDRINUSE` is the accept thread still holding the listener.
+fn wait_until_bindable(addr: SocketAddr) {
+    // Comfortably clear of the tens of milliseconds seen on a box running four
+    // times as many busy threads as it has cores, and short enough that a
+    // socket that somehow never comes back cannot hold up quitting the app.
+    const LIMIT: Duration = Duration::from_secs(1);
+    let deadline = Instant::now() + LIMIT;
+    loop {
+        match TcpListener::bind(addr) {
+            Ok(_probe) => return,
+            Err(_) if Instant::now() < deadline => thread::sleep(Duration::from_millis(1)),
+            Err(e) => {
+                eprintln!("av-launcher: {addr} still bound {LIMIT:?} after stopping: {e}");
+                return;
+            }
         }
     }
 }
@@ -416,6 +464,50 @@ fn fetch(port: u16, request: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, MutexGuard};
+
+    /// Held for the whole of any test that binds a port, so that no two of
+    /// this module's servers are ever live at once.
+    ///
+    /// These tests all bind port 0 and the harness runs them in parallel, so
+    /// without this the port one test has just released can be handed straight
+    /// to another test's `bind`. A test that then asks "is anything listening
+    /// on the port I was using?" gets an answer about somebody else's server.
+    static PORTS: Mutex<()> = Mutex::new(());
+
+    /// A poisoned `PORTS` would turn one failing test into every later test
+    /// failing too, hiding the one that actually broke — so take the lock back
+    /// from a panicking test rather than unwrapping.
+    fn port_lock() -> MutexGuard<'static, ()> {
+        PORTS.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// A server that holds [`PORTS`] for as long as the test needs it.
+    struct TestServer {
+        srv: StaticServer,
+        lock: MutexGuard<'static, ()>,
+    }
+
+    impl std::ops::Deref for TestServer {
+        type Target = StaticServer;
+        fn deref(&self) -> &StaticServer {
+            &self.srv
+        }
+    }
+
+    impl TestServer {
+        /// Stop the server; the port goes back into circulation with it.
+        fn stop(self) {
+            self.srv.stop();
+        }
+
+        /// Stop the server but keep holding [`PORTS`], for a test that wants to
+        /// look at the port it was using rather than at whoever binds it next.
+        fn stop_holding_the_port_lock(self) -> MutexGuard<'static, ()> {
+            self.srv.stop();
+            self.lock
+        }
+    }
 
     fn site_dir(name: &str) -> PathBuf {
         let dir =
@@ -437,7 +529,8 @@ mod tests {
         dir
     }
 
-    fn start(name: &str, not_found: NotFound) -> (StaticServer, PathBuf) {
+    fn start(name: &str, not_found: NotFound) -> (TestServer, PathBuf) {
+        let lock = port_lock();
         let root = site_dir(name);
         let headers = HeaderRules::parse(&std::fs::read_to_string(root.join("_headers")).unwrap());
         let site = Site {
@@ -446,7 +539,8 @@ mod tests {
             not_found,
             headers,
         };
-        (StaticServer::start(site, "127.0.0.1", 0).unwrap(), root)
+        let srv = StaticServer::start(site, "127.0.0.1", 0).unwrap();
+        (TestServer { srv, lock }, root)
     }
 
     fn get(port: u16, path: &str) -> String {
@@ -459,7 +553,7 @@ mod tests {
     #[test]
     fn serves_the_index_with_the_site_headers() {
         let (srv, _) = start("index", NotFound::None);
-        let r = get(srv.port, "/");
+        let r = get(srv.port(), "/");
         assert!(r.starts_with("HTTP/1.1 200"), "{r}");
         assert!(r.contains("Content-Type: text/html"), "{r}");
         assert!(
@@ -474,7 +568,7 @@ mod tests {
     #[test]
     fn later_rules_override_earlier_ones_by_path() {
         let (srv, _) = start("rules", NotFound::None);
-        let asset = get(srv.port, "/assets/app-abc123.js");
+        let asset = get(srv.port(), "/assets/app-abc123.js");
         assert!(asset.contains("Content-Type: text/javascript"), "{asset}");
         assert!(
             asset.contains("Cache-Control: public, max-age=31536000, immutable"),
@@ -484,7 +578,7 @@ mod tests {
             asset.contains("Content-Security-Policy"),
             "the /* rule still applies: {asset}"
         );
-        let sw = get(srv.port, "/sw.js");
+        let sw = get(srv.port(), "/sw.js");
         assert!(sw.contains("Cache-Control: no-cache"), "{sw}");
         srv.stop();
     }
@@ -502,7 +596,7 @@ mod tests {
             "/%2e%2e/outside-static-test.txt",
             "/assets/../../outside-static-test.txt",
         ] {
-            let r = get(srv.port, p);
+            let r = get(srv.port(), p);
             assert!(r.starts_with("HTTP/1.1 404"), "{p}: {r}");
             assert!(!r.contains("secret"), "{p} leaked: {r}");
         }
@@ -512,7 +606,7 @@ mod tests {
     #[test]
     fn never_serves_the_headers_file() {
         let (srv, _) = start("hidden", NotFound::None);
-        let r = get(srv.port, "/_headers");
+        let r = get(srv.port(), "/_headers");
         assert!(r.starts_with("HTTP/1.1 404"), "{r}");
         srv.stop();
     }
@@ -520,7 +614,7 @@ mod tests {
     #[test]
     fn spa_falls_back_to_the_index_with_the_routes_headers() {
         let (srv, _) = start("spa", NotFound::Spa);
-        let r = get(srv.port, "/some/client/route");
+        let r = get(srv.port(), "/some/client/route");
         assert!(r.starts_with("HTTP/1.1 200"), "{r}");
         assert!(r.contains("<title>t</title>"), "{r}");
         assert!(
@@ -533,7 +627,7 @@ mod tests {
     #[test]
     fn plain_404_when_not_spa() {
         let (srv, _) = start("404", NotFound::None);
-        let r = get(srv.port, "/nothing-here");
+        let r = get(srv.port(), "/nothing-here");
         assert!(r.starts_with("HTTP/1.1 404"), "{r}");
         srv.stop();
     }
@@ -542,7 +636,7 @@ mod tests {
     fn head_has_headers_and_no_body() {
         let (srv, _) = start("head", NotFound::None);
         let r = fetch(
-            srv.port,
+            srv.port(),
             "HEAD / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
         );
         assert!(r.starts_with("HTTP/1.1 200"), "{r}");
@@ -555,7 +649,7 @@ mod tests {
     fn only_get_and_head() {
         let (srv, _) = start("post", NotFound::None);
         let r = fetch(
-            srv.port,
+            srv.port(),
             "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
         );
         assert!(r.starts_with("HTTP/1.1 405"), "{r}");
@@ -565,10 +659,21 @@ mod tests {
     #[test]
     fn stop_releases_the_port() {
         let (srv, _) = start("stop", NotFound::None);
-        let port = srv.port;
+        let port = srv.port();
         assert!(srv.is_running());
-        srv.stop();
-        assert!(std::net::TcpStream::connect(("127.0.0.1", port)).is_err());
+        // Keep the lock across the checks: the point is what happened to *this*
+        // port, and a port nobody else can take is the only way to ask.
+        let _lock = srv.stop_holding_the_port_lock();
+        assert!(
+            std::net::TcpStream::connect(("127.0.0.1", port)).is_err(),
+            "something is still accepting on {port} after stop()"
+        );
+        // And the port is free, not merely unanswered — Stop then Start on a
+        // fixed port is a thing the panel does.
+        assert!(
+            TcpListener::bind(("127.0.0.1", port)).is_ok(),
+            "{port} could not be bound again after stop()"
+        );
     }
 
     #[test]

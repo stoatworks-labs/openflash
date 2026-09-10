@@ -39,5 +39,5 @@ Everything in this directory comes from
 generated from — so the served directory, the not-found policy and the port
 cannot differ between the container and this app. The shell (`src/`,
 `src-tauri/src/`, `src-tauri/crates/`) is a copy of av-launcher at
-`47472ee`. Change either there and regenerate; edits made here are
+`1d53f78`. Change either there and regenerate; edits made here are
 overwritten.

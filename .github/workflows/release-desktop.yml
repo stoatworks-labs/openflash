@@ -2,11 +2,23 @@
 # Repo: openflash. Edit fleet.json and regenerate — direct edits are overwritten.
 #
 # Builds the openflash desktop tray app (the av-launcher shell serving the
-# built site) for macOS (arm64 + x86_64), Windows (x86_64) and Linux (x86_64),
-# and attaches the installers to the release for the tag that triggered it.
+# built site) for macOS (one universal binary), Windows (x86_64) and Linux
+# (x86_64), and attaches the installers to the release for the tag that
+# triggered it.
 #
-# macOS x86_64 is cross-compiled on the Apple-Silicon runner; the Intel macOS
-# runners are retired, so macos-13 is never used.
+# macOS ships ONE universal .dmg and .pkg rather than a pair of
+# per-architecture ones, so an Intel Mac and an Apple Silicon Mac download the
+# same file and nobody has to work out which they own. Tauri's
+# `universal-apple-darwin` target builds both slices and lipos them; both were
+# already being built on the Apple-Silicon runner before this (the Intel macOS
+# runners are retired, so macos-13 is never used), so this merges them rather
+# than adding a build.
+#
+# The x86_64 slice is therefore still never EXECUTED anywhere in CI, and it now
+# hides inside the one file everybody downloads instead of in a separate one
+# only Intel users took. The lipo gate below is the whole defence: simplecue
+# once published an asset named macos-universal that was arm64 only, and
+# configured, built, tested and uploaded clean while doing it.
 #
 # The macOS bundles leave here ad-hoc signed. The Developer ID key never
 # leaves the author's Mac: a watcher there re-signs, notarises and re-uploads
@@ -35,10 +47,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: macos-aarch64,  os: macos-14,       target: aarch64-apple-darwin }
-          - { name: macos-x86_64,   os: macos-14,       target: x86_64-apple-darwin }
-          - { name: windows-x86_64, os: windows-latest, target: x86_64-pc-windows-msvc }
-          - { name: linux-x86_64,   os: ubuntu-22.04,   target: x86_64-unknown-linux-gnu }
+          # `universal-apple-darwin` is a Tauri *bundling* target, not a rustup
+          # one — `rustup target add universal-apple-darwin` fails. So the
+          # toolchain step installs `rustTargets`, which is the real triple (or
+          # both real triples) behind each row, and `target` stays what is
+          # handed to `tauri build` and names the output directory.
+          - { name: macos-universal, os: macos-14,       target: universal-apple-darwin,   rustTargets: 'aarch64-apple-darwin,x86_64-apple-darwin' }
+          - { name: windows-x86_64,  os: windows-latest, target: x86_64-pc-windows-msvc,   rustTargets: x86_64-pc-windows-msvc }
+          - { name: linux-x86_64,    os: ubuntu-22.04,   target: x86_64-unknown-linux-gnu, rustTargets: x86_64-unknown-linux-gnu }
     steps:
       - uses: actions/checkout@v7
 
@@ -48,7 +64,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.rustTargets }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -106,12 +122,42 @@ jobs:
           npm run tauri build -- --bundles deb rpm \
             --config "{\"version\":\"${{ steps.ver.outputs.version }}\"}"
 
+      # The only thing that proves a "universal" asset is universal. A Tauri
+      # build that produced one slice looks identical in the log to one that
+      # produced both, and the asset name is generated either way.
+      #
+      # Captured into a variable and matched with `case`, never piped into
+      # grep: Actions runs `shell: bash` as `bash -eo pipefail`, so grep
+      # exiting at its first match SIGPIPEs lipo and fails the step BECAUSE the
+      # match was found. That trap has bitten this fleet repeatedly.
+      - name: Verify the macOS bundle is universal
+        if: startsWith(matrix.os, 'macos')
+        shell: bash
+        run: |
+          appdir="launcher/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          app="openflash.app"
+          [ -d "$appdir/$app" ] || { echo "no .app produced" >&2; exit 1; }
+          # The executable is whatever the bundle says it is, not the product
+          # name with the spaces taken out or the crate name.
+          exe="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$appdir/$app/Contents/Info.plist")"
+          __archs="$( lipo -archs "$appdir/$app/Contents/MacOS/$exe" )"
+          echo "$app/Contents/MacOS/$exe: $__archs"
+          case "$__archs" in
+            *arm64*) ;;
+            *) echo "expected an arm64 slice, got: $__archs" >&2; exit 1 ;;
+          esac
+          case "$__archs" in
+            *x86_64*) ;;
+            *) echo "expected an x86_64 slice, got: $__archs" >&2; exit 1 ;;
+          esac
+
       - name: Build the macOS .pkg and .dmg
         if: startsWith(matrix.os, 'macos')
         shell: bash
-        # Tauri has no pkg bundler, and its dmg bundler's Finder step fails on
-        # the cross-compiled x86_64 bundle, so both come from the fleet's
-        # release helper and the same staged .app. Ad-hoc signed here; the
+        # Tauri has no pkg bundler, and its dmg bundler's Finder step has failed
+        # on a cross-compiled bundle, so both come from the fleet's release
+        # helper and the same staged .app — which also keeps the artefact names
+        # identical to the rest of the fleet's. Ad-hoc signed here; the
         # Developer ID signature and notarisation are applied post-hoc.
         run: |
           source launcher/scripts/release-lib.sh
