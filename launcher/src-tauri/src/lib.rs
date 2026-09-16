@@ -528,6 +528,19 @@ pub fn run() {
                 api.prevent_close();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        // Every way out passes through here: ⌘Q, Quit from the Dock, and the
+        // exit() our own Quit items call after stopping the server themselves.
+        // Without this, ⌘Q exited the shell and left the child listening —
+        // orphaned, with no tray left to stop it from, and holding the port
+        // against the next Start. shutdown() is idempotent, so the paths that
+        // already stopped the server cost nothing here.
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit = event {
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.shutdown();
+                }
+            }
+        });
 }
