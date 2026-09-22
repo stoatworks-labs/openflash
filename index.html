@@ -8,6 +8,11 @@
       name="description"
       content="A browser-based installer for LineageOS and other alternative Android systems. Detects the device over USB, generates the exact procedure for it, and runs the parts a machine should run."
     />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- iOS ignores the manifest's icons entirely and wants a PNG of its own. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Tints the status bar and the title bar once installed. -->
+    <meta name="theme-color" content="#14161a" />
   </head>
   <body>
     <div id="app"></div>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="openflash">
+  <rect width="32" height="32" rx="6" fill="#14161a"/>
+  <g id="mark">
+    <!-- A handset taking a system over the cable. -->
+    <rect x="9" y="4.5" width="14" height="23" rx="2.8" fill="none" stroke="#62b3ff" stroke-width="1.8"/>
+    <path d="M16 9.5v8.4m0 0 3.2-3.2M16 17.9l-3.2-3.2" fill="none" stroke="#62b3ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M12.8 22.6h6.4" stroke="#62b3ff" stroke-width="1.7" stroke-linecap="round" opacity=".55"/>
+  </g>
+</svg>
