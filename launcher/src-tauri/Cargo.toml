@@ -1,6 +1,6 @@
 [package]
 name = "av-launcher"
-version = "0.3.0"
+version = "0.3.1"
 description = "Companion-style tray launcher for local web-server apps"
 authors = ["Allan Sargeant"]
 edition = "2021"
@@ -35,6 +35,11 @@ toml_edit = "0.25"
 # and small: an async stack would be more surface than serving a few hundred
 # kilobytes of built site on a LAN needs. Same crate Burrow serves its demos with.
 tiny_http = "0.12"
+
+# kill(2) for SIGTERM on Stop/Quit — std's Child::kill() is SIGKILL, which
+# gives a server no chance to shut down or stop its own children.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 # The command layer (start/stop/status) is exercised against Tauri's mock
