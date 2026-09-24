@@ -1,60 +1,49 @@
 # Attributions
 
-openflash is built on other people's work. This file lists what that work is,
-who did it, and what it is doing here.
+openflash is built on other people's work. This file lists what that work is, who did
+it, and what it is doing here.
+
+It is generated — the master lists live in the `stoatworks-backend` repo and are
+pushed out by `scripts/sync-attributions.py`. Edit it there, not here.
 
 ## Third-party code this project uses
 
-### fastboot.js (`android-fastboot`)
+Libraries, SDKs and frameworks the project is built on or bundles.
 
-<https://github.com/kdrag0n/fastboot.js>
-Licence: MIT
-Copyright: Danny Lin
+### Tauri
 
-An npm dependency. Implements the Android fastboot protocol over WebUSB —
-unlocking, flashing raw and sparse images, splitting images larger than the
-bootloader's download limit, and flashing AOSP factory-image zips. Every
-`fastboot` operation this project performs goes through it.
+<https://tauri.app>  
+Licence: MIT or Apache-2.0  
+Copyright: The Tauri Programme within The Commons Conservancy
 
-### ya-webadb (`@yume-chan/adb` and friends)
+A Cargo and npm dependency — of the app itself under src-tauri/, or of the desktop launcher under launcher/src-tauri/.
 
-<https://github.com/yume-chan/ya-webadb>
-Licence: MIT
-Copyright: Simon Chan
+Wraps a web front end in a native desktop app using the platform's own webview rather than a bundled browser, so the binary stays small.
 
-An npm dependency. Implements the ADB protocol over WebUSB, including the RSA
-authentication handshake and the key store. Used for reading device properties
-and for the socket that `adb sideload` runs over.
+### The Rust crate ecosystem
 
-The sideload command itself is not part of ya-webadb; `src/core/sideload.ts` is
-an implementation of the AOSP `sideload-host` protocol on top of its socket API.
+<https://crates.io>  
+Licence: predominantly MIT or Apache-2.0  
+Copyright: the individual crate authors
 
-### Vite and TypeScript
+Cargo dependencies, resolved and pinned in Cargo.lock.
 
-<https://vite.dev> · <https://www.typescriptlang.org>
-Licence: MIT · Apache-2.0
+Async runtimes, protocol codecs, serialisation and GUI toolkits. The exact set and versions for any build are in that repo's Cargo.lock, which is the authoritative list.
 
-Build tooling.
+### The npm ecosystem
 
-## Data this project uses
+<https://www.npmjs.com>  
+Licence: predominantly MIT  
+Copyright: the individual package authors
 
-### The LineageOS wiki device database
+npm dependencies, resolved and pinned in the lockfile.
 
-<https://github.com/LineageOS/lineage_wiki>
-Licence: CC BY-SA 3.0 for the wiki content
-Copyright: The LineageOS Project and wiki contributors
+Build tooling, test runners and the libraries the front ends are assembled from. The exact set and versions for any build are in that repo's lockfile, which is the authoritative list.
 
-`public/data/devices.json` is generated from `_data/devices/*.yml` in that
-repository by `scripts/build-device-db.mjs`. Those files are what drive the
-wiki's own per-device install pages, and the step generator in
-`src/core/plan.ts` is a re-expression of the same Liquid templates.
+The full transitive dependency set for any build is pinned in this repo's lockfile,
+which is the authoritative list. What is named above is the layers a reader would
+want to know about, not every package that has ever been resolved.
 
-This project is not affiliated with or endorsed by the LineageOS project. The
-wiki is the authority on how to install LineageOS; this is a tool that reads
-its data.
+## Getting this wrong
 
-## Trademarks
-
-Android is a trademark of Google LLC. LineageOS, /e/OS, CalyxOS, GrapheneOS,
-iodéOS and DivestOS are the marks of their respective projects. Naming them here
-describes compatibility; it does not imply any endorsement by them.
+If your work is here and the description is inaccurate, the licence is wrong, or you would rather not be listed — open an issue and it will be fixed.
