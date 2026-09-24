@@ -29,6 +29,14 @@ and for the socket that `adb sideload` runs over.
 The sideload command itself is not part of ya-webadb; `src/core/sideload.ts` is
 an implementation of the AOSP `sideload-host` protocol on top of its socket API.
 
+### Tauri
+
+<https://tauri.app>
+Licence: MIT or Apache-2.0
+
+The desktop launcher in `launcher/`, which the desktop builds ship. Its Rust crates
+are pinned in `launcher/src-tauri/Cargo.lock`.
+
 ### Vite and TypeScript
 
 <https://vite.dev> · <https://www.typescriptlang.org>
