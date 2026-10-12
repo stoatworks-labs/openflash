@@ -106,7 +106,8 @@ any Android device the moment it appears, and the browser then gets refused the
 same USB interface. It bites *after* the phone reboots into recovery, so the
 step that fails isn't the step that caused it.
 
-Deploy: `cf-run npm run deploy` (a static-assets Worker, not a Pages project).
+Deploy: every push to `main` deploys through `.github/workflows/deploy.yml` (a
+static-assets Worker, not a Pages project). `cf-run npm run deploy` still does it by hand.
 
 ## Checks
 
