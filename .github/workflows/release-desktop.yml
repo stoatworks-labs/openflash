@@ -52,11 +52,36 @@ jobs:
           # toolchain step installs `rustTargets`, which is the real triple (or
           # both real triples) behind each row, and `target` stays what is
           # handed to `tauri build` and names the output directory.
-          - { name: macos-universal, os: macos-14,       target: universal-apple-darwin,   rustTargets: 'aarch64-apple-darwin,x86_64-apple-darwin' }
+          - { name: macos-universal, os: macos-15,       target: universal-apple-darwin,   rustTargets: 'aarch64-apple-darwin,x86_64-apple-darwin' }
           - { name: windows-x86_64,  os: windows-latest, target: x86_64-pc-windows-msvc,   rustTargets: x86_64-pc-windows-msvc }
           - { name: linux-x86_64,    os: ubuntu-22.04,   target: x86_64-unknown-linux-gnu, rustTargets: x86_64-unknown-linux-gnu }
     steps:
+      # A dispatched run builds the tag it names, not the branch it ran from, so
+      # re-running a release on a fixed workflow still builds that release's code.
+      # A tag that is not pushed yet is the dry run below, and builds the branch.
+      - name: Ref to build
+        id: src
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          ref="${{ github.ref }}"
+          if [ -n "$TAG" ]; then
+            if out=$(gh api "repos/${{ github.repository }}/git/ref/tags/$TAG" 2>&1); then
+              ref="refs/tags/$TAG"
+            else
+              case "$out" in
+                *"HTTP 404"*) echo "tag $TAG is not pushed; building ${{ github.ref_name }}" ;;
+                *) echo "$out" >&2; exit 1 ;;
+              esac
+            fi
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.src.outputs.ref }}
 
       - uses: actions/setup-node@v7
         with:
