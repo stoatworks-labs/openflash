@@ -4,10 +4,49 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>openflash — install LineageOS and other Android systems from a browser</title>
-    <meta
-      name="description"
-      content="A browser-based installer for LineageOS and other alternative Android systems. Detects the device over USB, generates the exact procedure for it, and runs the parts a machine should run."
-    />
+    <meta name="description" content="A browser-based installer for LineageOS and other Android systems: it reads the phone over WebUSB and builds the install procedure for that exact device. Free, nothing uploaded." />
+    <link rel="canonical" href="https://openflash.stoatworks-labs.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Stoatworks Labs" />
+    <meta property="og:title" content="openflash — install LineageOS and other Android systems from a browser" />
+    <meta property="og:description" content="A browser-based installer for LineageOS and other Android systems: it reads the phone over WebUSB and builds the install procedure for that exact device. Free, nothing uploaded." />
+    <meta property="og:url" content="https://openflash.stoatworks-labs.com/" />
+    <meta property="og:image" content="https://stoatworks-labs.com/thumbs/openflash.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <meta property="og:image:alt" content="openflash" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://openflash.stoatworks-labs.com#app",
+        "name": "openflash",
+        "url": "https://openflash.stoatworks-labs.com",
+        "description": "A browser-based installer for LineageOS and other Android systems: it reads the phone over WebUSB and builds the install procedure for that exact device. Free, nothing uploaded.",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any (runs in a web browser)",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "GBP"
+        },
+        "author": {
+          "@id": "https://stoatworks-labs.com/#organization",
+          "@type": "Organization",
+          "name": "Stoatworks Labs",
+          "url": "https://stoatworks-labs.com/"
+        },
+        "publisher": {
+          "@id": "https://stoatworks-labs.com/#organization"
+        },
+        "sameAs": [
+          "https://stoatworks-labs.com/web-tools/openflash/",
+          "https://github.com/stoatworks-labs/openflash"
+        ]
+      }
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <!-- iOS ignores the manifest's icons entirely and wants a PNG of its own. -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -15,6 +54,17 @@
     <meta name="theme-color" content="#14161a" />
   </head>
   <body>
+    <noscript>
+      <h1>openflash</h1>
+      <p>A browser-based installer for LineageOS and other alternative Android systems. It speaks fastboot and ADB over WebUSB, reads the codename, firmware version and lock state off the connected handset, and builds the install procedure for that exact device: the extra partitions it needs, the stock firmware it expects, and the unlock command it actually takes.</p>
+      <p>The device data is generated from the LineageOS wiki's own files rather than copied out by hand, so all 733 devices the wiki documents are covered. 554 get a full procedure, and the other 179 are told straight that no browser can flash them. Files you drop in are hashed in the page and checked against the official SHA-256 for that build before anything is written, and every automated step prints the adb and fastboot commands it stands in for, so in a browser without WebUSB you still get a correct, ordered command list for your device. Tested end to end on a Pixel 4a, from bootloader unlock through to a booted LineageOS.</p>
+      <p>It needs JavaScript to run.</p>
+      <ul>
+        <li><a href="https://stoatworks-labs.com/web-tools/openflash/">openflash on Stoatworks Labs</a></li>
+        <li><a href="https://stoatworks-labs.com/software/openflash/">Project page</a></li>
+        <li><a href="https://github.com/stoatworks-labs/openflash">Source code on GitHub</a></li>
+      </ul>
+    </noscript>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -16,6 +16,8 @@ straight which parts only you can do.
 Deep links work: [`?device=sunfish&os=lineageos`](https://openflash.stoatworks-labs.com/?device=sunfish&os=lineageos)
 opens straight onto the procedure for a Pixel 4a.
 
+It has a [page on Stoatworks Labs](https://stoatworks-labs.com/web-tools/openflash/), which also covers running it on your own server, and a [project page](https://stoatworks-labs.com/software/openflash/).
+
 <table>
   <tr>
     <td align="center"><img src="docs/screenshots/device-and-os.png" width="420" alt="Device detected as a Pixel 4a, with six operating systems offered and their support status"><br><sub>pick a device, pick a system</sub></td>

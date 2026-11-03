@@ -94,6 +94,10 @@ export async function start(root: HTMLElement): Promise<void> {
           "Nothing is uploaded anywhere. The files you supply are read in the page " +
           "and sent to your phone over USB.",
         ),
+        el("p", {},
+          el("a", { href: "https://stoatworks-labs.com/web-tools/openflash/", target: "_blank", rel: "noopener" },
+            "About this tool"),
+        ),
       ),
     ),
   );

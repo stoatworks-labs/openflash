@@ -1,0 +1,16 @@
+# openflash
+
+> LineageOS onto your phone, over USB, from a browser tab
+
+A browser-based installer for LineageOS and other alternative Android systems. It speaks fastboot and ADB over WebUSB, reads the codename, firmware version and lock state off the connected handset, and builds the install procedure for that exact device: the extra partitions it needs, the stock firmware it expects, and the unlock command it actually takes.
+
+The device data is generated from the LineageOS wiki's own files rather than copied out by hand, so all 733 devices the wiki documents are covered. 554 get a full procedure, and the other 179 are told straight that no browser can flash them. Files you drop in are hashed in the page and checked against the official SHA-256 for that build before anything is written, and every automated step prints the adb and fastboot commands it stands in for, so in a browser without WebUSB you still get a correct, ordered command list for your device. Tested end to end on a Pixel 4a, from bootloader unlock through to a booted LineageOS.
+
+It runs in the browser at https://openflash.stoatworks-labs.com/ and is free to use.
+
+## Links
+
+- [openflash on Stoatworks Labs](https://stoatworks-labs.com/web-tools/openflash/): what it is, with links to everything else
+- [Project page](https://stoatworks-labs.com/software/openflash/)
+- [Source code](https://github.com/stoatworks-labs/openflash)
+- [Self-hosting](https://stoatworks-labs.com/web-tools/self-hosting/): running it on your own server
