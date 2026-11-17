@@ -20,7 +20,7 @@ It has a [page on Stoatworks Labs](https://stoatworks-labs.com/web-tools/openfla
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/device-and-os.png" width="420" alt="Device detected as a Pixel 4a, with six operating systems offered and their support status"><br><sub>pick a device, pick a system</sub></td>
+    <td align="center"><img src="docs/screenshots/device-and-os.png" width="420" alt="Device detected as a Pixel 4a, with six operating systems and an Another ROM choice offered, and their support status"><br><sub>pick a device, pick a system</sub></td>
     <td align="center"><img src="docs/screenshots/procedure.png" width="420" alt="The generated procedure for a Pixel 4a, with manual and automatic steps and their equivalent commands"><br><sub>the procedure it generates for that pair</sub></td>
   </tr>
 </table>
