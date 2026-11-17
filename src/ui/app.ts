@@ -64,10 +64,13 @@ export async function start(root: HTMLElement): Promise<void> {
   state.distros = await allDistros();
 
   root.append(
-    el("header", { class: "top" },
+    // The navy band from the shared theme (sw-bar): brand row, then the lede.
+    el("header", { class: "sw-bar top" },
       el("div", { class: "wrap" },
-        el("h1", {}, "openflash"),
-        el("p", {},
+        el("div", { class: "brand-row" },
+          el("h1", { class: "sw-brand" }, el("span", { class: "sw-mark", "aria-hidden": "true" }, "↯"), " openflash"),
+        ),
+        el("p", { class: "sw-sub" },
           "Install LineageOS and other alternative Android systems from a browser. " +
           "It talks to the phone over WebUSB, does the parts a machine should do, " +
           "and tells you plainly which parts only you can do.",
