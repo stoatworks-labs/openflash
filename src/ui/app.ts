@@ -69,6 +69,9 @@ export async function start(root: HTMLElement): Promise<void> {
       el("div", { class: "wrap" },
         el("div", { class: "brand-row" },
           el("h1", { class: "sw-brand" }, el("span", { class: "sw-mark", "aria-hidden": "true" }, "↯"), " openflash"),
+          // Opens the shared About dialog: public/about.js delegates this
+          // attribute from the document, so nothing needs wiring here.
+          el("button", { type: "button", "data-stoatworks-about": true }, "About"),
         ),
         el("p", { class: "sw-sub" },
           "Install LineageOS and other alternative Android systems from a browser. " +
